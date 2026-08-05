@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="ru">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/apple-touch-icon.png">
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поручения · аналитика</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- SheetJS (XLSX) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+        }
+        body {
+            background: #f4f7fc;
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .app {
+            max-width: 1400px;
+            width: 100%;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 40px -12px rgba(0,20,40,0.25);
+            padding: 1.8rem 1.8rem 2.2rem;
+            transition: 0.2s;
+        }
+        .header-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            gap: 12px;
+        }
+        h1 {
+            font-size: 1.9rem;
+            font-weight: 600;
+            color: #0b2b4a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        h1 i {
+            color: #2a7de1;
+            font-size: 2rem;
+        }
+        .header-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+        .sync-status {
+            font-size: 0.8rem;
+            color: #4f658a;
+            background: #eef4fb;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sync-status i {
+            font-size: 0.7rem;
+        }
+        .sync-status.online i {
+            color: #27ae60;
+        }
+        .sync-status.offline i {
+            color: #e74c3c;
+        }
+        .sync-status.syncing i {
+            color: #f39c12;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+        .btn-analytics {
+            background: #1a5fb4;
+            border: none;
+            color: white;
+            padding: 0.6rem 1.5rem;
+            border-radius: 60px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 8px rgba(26,95,180,0.2);
+        }
+        .btn-analytics:hover {
+            background: #0e4a92;
+            transform: scale(1.02);
+        }
+        .btn-analytics.secondary {
+            background: #6c7a92;
+            box-shadow: 0 4px 8px rgba(108,122,146,0.2);
+        }
+        .btn-analytics.secondary:hover {
+            background: #55647a;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.8rem;
+            gap: 16px 10px;
+        }
+        .filter-area {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px 16px;
+            background: #f0f5fe;
+            padding: 0.5rem 1.2rem;
+            border-radius: 60px;
+        }
+        .filter-area label {
+            font-weight: 500;
+            color: #1f3a5f;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filter-area select, .filter-area input {
+            background: white;
+            border: 1px solid #d4e0f0;
+            border-radius: 40px;
+            padding: 0.4rem 1rem 0.4rem 1.2rem;
+            font-size: 0.9rem;
+            color: #0b2b4a;
+            outline: none;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .filter-area select:focus, .filter-area input:focus {
+            border-color: #2a7de1;
+            box-shadow: 0 0 0 3px rgba(42,125,225,0.2);
+        }
+        .btn-add {
+            background: #1a5fb4;
+            border: none;
+            color: white;
+            padding: 0.6rem 1.8rem;
+            border-radius: 60px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 8px rgba(26,95,180,0.2);
+        }
+        .btn-add:hover {
+            background: #0e4a92;
+            transform: scale(1.02);
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 18px;
+            border: 1px solid #e9edf4;
+            background: white;
+            margin-top: 0.2rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+            min-width: 950px;
+        }
+        th {
+            background: #f8faff;
+            color: #1a3455;
+            font-weight: 600;
+            padding: 1rem 0.8rem;
+            text-align: left;
+            border-bottom: 2px solid #dbe1ec;
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        th i {
+            margin-left: 8px;
+            opacity: 0.5;
+            font-size: 0.8rem;
+        }
+        th:hover {
+            background: #eef4fd;
+        }
+        td {
+            padding: 0.9rem 0.8rem;
+            border-bottom: 1px solid #eef2f8;
+            vertical-align: middle;
+            background-color: white;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.9rem;
+            border-radius: 40px;
+            display: inline-block;
+            background: #e6edf6;
+            color: #1e3a5f;
+        }
+        .task-row.yellow {
+            background-color: #fff9e0;
+        }
+        .task-row.yellow td {
+            background-color: #fff9e0;
+        }
+        .task-row.red {
+            background-color: #ffe9e9;
+        }
+        .task-row.red td {
+            background-color: #ffe9e9;
+        }
+        .task-row.completed {
+            opacity: 0.75;
+        }
+        .task-row.completed td {
+            background-color: #f0f7f0;
+        }
+        .comment-cell {
+            max-width: 220px;
+            min-width: 150px;
+        }
+        .comment-cell textarea {
+            width: 100%;
+            border: 1px solid #d4dceb;
+            border-radius: 12px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            background: #fafcff;
+            transition: 0.1s;
+            resize: vertical;
+            min-height: 40px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: inherit;
+            line-height: 1.4;
+        }
+        .comment-cell textarea:focus {
+            border-color: #2a7de1;
+            background: white;
+            box-shadow: 0 0 0 2px rgba(42,125,225,0.1);
+            outline: none;
+        }
+        .action-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+        .action-btns .btn-icon {
+            background: transparent;
+            border: 1px solid #d0daea;
+            border-radius: 40px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: #1f3a5f;
+            cursor: pointer;
+            transition: 0.15s;
+            position: relative;
+            padding: 0;
+        }
+        .action-btns .btn-icon:hover {
+            background: #e6effb;
+            border-color: #8fb0e0;
+        }
+        .action-btns .btn-icon.btn-remove {
+            color: #b13a3a;
+            border-color: #f5d0d0;
+        }
+        .action-btns .btn-icon.btn-remove:hover {
+            background: #ffeded;
+            border-color: #d98c8c;
+        }
+        .action-btns .btn-icon.btn-copy {
+            color: #1f6b3a;
+            border-color: #b8dac8;
+        }
+        .action-btns .btn-icon.btn-copy:hover {
+            background: #e3f5ea;
+            border-color: #7bb894;
+        }
+        .action-btns .btn-icon.btn-complete {
+            color: #1f6b3a;
+            border-color: #b8dac8;
+        }
+        .action-btns .btn-icon.btn-complete:hover {
+            background: #e3f5ea;
+            border-color: #7bb894;
+        }
+        .action-btns .btn-icon.btn-extend {
+            color: #b3771a;
+            border-color: #f0d8a8;
+        }
+        .action-btns .btn-icon.btn-extend:hover {
+            background: #fdf3e0;
+            border-color: #dbb87a;
+        }
+        .action-btns .btn-icon.btn-extend-custom {
+            color: #8a6d3b;
+            border-color: #e0d0b8;
+        }
+        .action-btns .btn-icon.btn-extend-custom:hover {
+            background: #f5ede4;
+            border-color: #c4b09a;
+        }
+        .action-btns .btn-icon[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a3455;
+            color: white;
+            padding: 0.25rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+        .action-btns .btn-icon[data-tooltip]:hover::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 2px);
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1a3455;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .footer-info {
+            margin-top: 1.2rem;
+            font-size: 0.85rem;
+            color: #4f658a;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .footer-info span {
+            background: #eef4fb;
+            padding: 0.2rem 1rem;
+            border-radius: 30px;
+        }
+        .footer-info .task-counter {
+            background: #1a5fb4;
+            color: white;
+        }
+        .toast-message {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a3455;
+            color: white;
+            padding: 0.6rem 1.8rem;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            pointer-events: none;
+            z-index: 999;
+        }
+        .toast-message.show {
+            opacity: 1;
+        }
+        .analytics-panel {
+            display: none;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #e9edf4;
+        }
+        .analytics-panel.open {
+            display: block;
+        }
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.8rem;
+            margin-bottom: 2rem;
+        }
+        .analytics-card {
+            background: #f8faff;
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            border: 1px solid #e9edf4;
+        }
+        .analytics-card h3 {
+            font-size: 1.1rem;
+            color: #1a3455;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .analytics-card h3 i {
+            color: #2a7de1;
+        }
+        .analytics-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 1.2rem;
+        }
+        .analytics-controls label {
+            font-weight: 500;
+            color: #1f3a5f;
+            font-size: 0.9rem;
+        }
+        .analytics-controls input {
+            background: white;
+            border: 1px solid #d4e0f0;
+            border-radius: 40px;
+            padding: 0.3rem 1rem;
+            font-size: 0.9rem;
+        }
+        .analytics-controls button {
+            background: #1a5fb4;
+            border: none;
+            color: white;
+            padding: 0.3rem 1.2rem;
+            border-radius: 40px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .analytics-controls button:hover {
+            background: #0e4a92;
+        }
+        .chart-container {
+            position: relative;
+            height: 220px;
+            max-width: 100%;
+        }
+        .stats-table-wrap {
+            max-height: 260px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+        .stats-table-wrap table {
+            min-width: 100%;
+            font-size: 0.9rem;
+        }
+        .stats-table-wrap th {
+            background: #eef4fb;
+            position: sticky;
+            top: 0;
+            padding: 0.5rem 0.6rem;
+            font-size: 0.8rem;
+        }
+        .stats-table-wrap td {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.85rem;
+        }
+        .btn-export {
+            background: #1f8b4c;
+            border: none;
+            color: white;
+            padding: 0.4rem 1.4rem;
+            border-radius: 40px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-export:hover {
+            background: #16703d;
+        }
+        @media (max-width: 900px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 700px) {
+            .app { padding: 1rem; }
+            .filter-area { border-radius: 30px; padding: 0.5rem 1rem; }
+            .header-row { flex-direction: column; align-items: stretch; }
+            .header-actions { justify-content: stretch; }
+            .header-actions .btn-analytics { flex: 1; justify-content: center; }
+        }
+        th i.fa-sort-up, th i.fa-sort-down {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+<div class="app" id="app">
+    <div class="header-row">
+        <h1><i class="fas fa-clipboard-list"></i> Поручения</h1>
+        <div class="header-actions">
+            <span class="sync-status online" id="syncStatus">
+                <i class="fas fa-circle"></i> Синхронизировано
+            </span>
+            <button class="btn-analytics" id="toggleAnalyticsBtn"><i class="fas fa-chart-pie"></i> Аналитика</button>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <div class="filter-area">
+            <label><i class="fas fa-filter"></i> Статус</label>
+            <select id="filterStatus">
+                <option value="all">Все</option>
+                <option value="active">Активные</option>
+                <option value="completed">Сняты</option>
+                <option value="overdue">Просрочены</option>
+            </select>
+            <label><i class="fas fa-user"></i> Исполнитель</label>
+            <input type="text" id="filterExecutor" placeholder="Фильтр по имени" style="min-width:120px;">
+        </div>
+        <button class="btn-add" id="addTaskBtn"><i class="fas fa-plus-circle"></i> Новое поручение</button>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="taskTable">
+            <thead>
+                <tr>
+                    <th data-sort="task" style="min-width:130px;">Поручение <i class="fas fa-sort"></i></th>
+                    <th data-sort="executor" style="min-width:110px;">Исполнитель <i class="fas fa-sort"></i></th>
+                    <th data-sort="deadline" style="min-width:130px;">Срок <i class="fas fa-sort"></i></th>
+                    <th data-sort="status" style="min-width:80px;">Статус <i class="fas fa-sort"></i></th>
+                    <th style="min-width:180px;">Исполнение</th>
+                    <th style="min-width:170px;">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="taskBody">
+                <tr>
+                    <td colspan="6" style="text-align:center;padding:3rem;color:#6a7f9f;">
+                        <i class="fas fa-spinner fa-spin" style="font-size:2rem;display:block;margin-bottom:0.5rem;"></i>
+                        Загрузка данных...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="footer-info">
+        <span><i class="far fa-clock"></i> Желтый — остался 1 день или сегодня</span>
+        <span><i class="fas fa-exclamation-circle"></i> Красный — просрочено</span>
+        <span class="task-counter" id="taskCounter"><i class="fas fa-tasks"></i> Всего: 0</span>
+    </div>
+
+    <!-- АНАЛИТИКА -->
+    <div class="analytics-panel" id="analyticsPanel">
+        <h2 style="font-size:1.5rem; color:#0b2b4a; margin-bottom:0.5rem;"><i class="fas fa-chart-line"></i> Аналитика исполнительской дисциплины</h2>
+        <div class="analytics-controls">
+            <label>Период с:</label>
+            <input type="date" id="periodStart">
+            <label>по:</label>
+            <input type="date" id="periodEnd">
+            <button id="updateAnalyticsBtn"><i class="fas fa-sync-alt"></i> Обновить</button>
+            <button class="btn-export" id="exportExcelBtn"><i class="fas fa-file-excel"></i> Выгрузить Excel</button>
+        </div>
+        <div class="analytics-grid">
+            <div class="analytics-card">
+                <h3><i class="fas fa-chart-bar"></i> Распределение по статусам</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <div class="analytics-card">
+                <h3><i class="fas fa-user-check"></i> Топ-5 исполнителей</h3>
+                <div class="chart-container">
+                    <canvas id="executorChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="analytics-card" style="grid-column: 1 / -1;">
+            <h3><i class="fas fa-table"></i> Детальная статистика</h3>
+            <div class="stats-table-wrap" id="statsTableWrap">
+                <table id="statsTable">
+                    <thead><tr><th>Исполнитель</th><th>Всего</th><th>Снято</th><th>Просрочено</th><th>В работе</th><th>% выполнения</th></tr></thead>
+                    <tbody id="statsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast-message"></div>
+
+<script>
+    (function() {
+        // ============================================================
+        // 1. НАСТРОЙКА FIREBASE - ВСТАВЬТЕ СВОИ ДАННЫЕ!
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMxPT54kAcztqYo3pd1IVVn5b_6WN3Fg8",                              // ← ВСТАВИТЬ
+            authDomain: "familytasks-804bf.firebaseapp.com",        // ← ВСТАВИТЬ
+            databaseURL: "https://familytasks-804bf-default-rtdb.asia-southeast1.firebasedatabase.app/", // ← ВСТАВИТЬ
+            projectId: "familytasks-804bf",                         // ← ВСТАВИТЬ
+            storageBucket: "familytasks-804bf.firebasestorage.app",         // ← ВСТАВИТЬ
+            messagingSenderId: "334374104806",                    // ← ВСТАВИТЬ
+            appId: "1:334374104806:web:073700b0dd2b63ebe19527"                    // ← ВСТАВИТЬ
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // ============================================================
+        // 2. НАСТРОЙКА: URL для вставки при копировании
+        // ============================================================
+        const SITE_URL = 'https://mintrudrt.github.io/family_tasks/'; // ← измените здесь
+
+        // ============================================================
+        // 3. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ============================================================
+        let tasks = [];
+        let isLoading = true;
+        let isSyncing = false;
+        let sortConfig = { key: 'deadline', direction: 'asc' };
+        let currentFilter = { status: 'all', executor: '' };
+        let statusChartInstance = null;
+        let executorChartInstance = null;
+        let isFirstLoad = true;
+
+        // DOM элементы
+        const tbody = document.getElementById('taskBody');
+        const filterStatus = document.getElementById('filterStatus');
+        const filterExecutor = document.getElementById('filterExecutor');
+        const addBtn = document.getElementById('addTaskBtn');
+        const toast = document.getElementById('toast');
+        const analyticsPanel = document.getElementById('analyticsPanel');
+        const toggleAnalyticsBtn = document.getElementById('toggleAnalyticsBtn');
+        const updateAnalyticsBtn = document.getElementById('updateAnalyticsBtn');
+        const exportExcelBtn = document.getElementById('exportExcelBtn');
+        const periodStart = document.getElementById('periodStart');
+        const periodEnd = document.getElementById('periodEnd');
+        const syncStatus = document.getElementById('syncStatus');
+        const taskCounter = document.getElementById('taskCounter');
+
+        // ============================================================
+        // 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+        // ============================================================
+        function toDisplayDate(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            return `${parts[2]}.${parts[1]}.${parts[0]}`;
+        }
+
+        function fromDisplayDate(displayStr) {
+            if (!displayStr) return '';
+            const parts = displayStr.split('.');
+            if (parts.length !== 3) return displayStr;
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+
+        function isValidDateDisplay(displayStr) {
+            const iso = fromDisplayDate(displayStr);
+            const d = new Date(iso);
+            return !isNaN(d.getTime()) && iso.match(/^\d{4}-\d{2}-\d{2}$/);
+        }
+
+        function getStatusFromDate(deadline, status) {
+            if (status === 'completed') return 'completed';
+            const now = new Date();
+            now.setHours(0,0,0,0);
+            const d = new Date(deadline);
+            d.setHours(0,0,0,0);
+            const diff = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+            if (diff < 0) return 'overdue';
+            if (diff <= 1) return 'warning';
+            return 'active';
+        }
+
+        function refreshTaskStatuses() {
+            tasks.forEach(t => {
+                if (t.status === 'completed') return;
+                const s = getStatusFromDate(t.deadline, t.status);
+                if (s === 'overdue') t.status = 'overdue';
+                else if (s === 'warning') t.status = 'warning';
+                else if (s === 'active') t.status = 'active';
+            });
+        }
+
+        function getDefaultTasks() {
+            const now = Date.now();
+            return [
+                { id: now + 1, task: 'Подготовить отчёт по Q3', executor: 'Анна С.', deadline: '2026-08-05', status: 'active', comment: 'Жду данные от маркетинга' },
+                { id: now + 2, task: 'Проверить договоры', executor: 'Игорь В.', deadline: '2026-08-03', status: 'active', comment: 'На проверке' },
+                { id: now + 3, task: 'Обновить базу клиентов', executor: 'Мария К.', deadline: '2026-08-01', status: 'completed', comment: 'Выполнено' },
+                { id: now + 4, task: 'Согласовать бюджет', executor: 'Дмитрий П.', deadline: '2026-08-10', status: 'active', comment: 'Жду ответа' },
+                { id: now + 5, task: 'Запустить рекламную кампанию', executor: 'Ольга Н.', deadline: '2026-07-30', status: 'overdue', comment: 'Перенести' },
+            ];
+        }
+
+        // ============================================================
+        // 5. РАБОТА С ХРАНИЛИЩЕМ (localStorage как резерв)
+        // ============================================================
+        function saveToLocalStorage(data) {
+            try {
+                localStorage.setItem('tasks_backup', JSON.stringify(data));
+            } catch (e) {
+                console.warn('Ошибка сохранения в localStorage:', e);
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const data = localStorage.getItem('tasks_backup');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        return parsed;
+                    }
+                }
+            } catch (e) {
+                console.warn('Ошибка загрузки из localStorage:', e);
+            }
+            return null;
+        }
+
+        // ============================================================
+        // 6. СИНХРОНИЗАЦИЯ СТАТУСА
+        // ============================================================
+        function updateSyncStatus(status, message) {
+            syncStatus.className = 'sync-status';
+            if (status === 'online') {
+                syncStatus.classList.add('online');
+                syncStatus.innerHTML = `<i class="fas fa-circle"></i> ${message || 'Синхронизировано'}`;
+            } else if (status === 'offline') {
+                syncStatus.classList.add('offline');
+                syncStatus.innerHTML = `<i class="fas fa-circle"></i> ${message || 'Офлайн'}`;
+            } else if (status === 'syncing') {
+                syncStatus.classList.add('syncing');
+                syncStatus.innerHTML = `<i class="fas fa-spinner"></i> ${message || 'Синхронизация...'}`;
+            }
+        }
+
+        // ============================================================
+        // 7. TOAST УВЕДОМЛЕНИЯ
+        // ============================================================
+        let toastTimeout = null;
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // ============================================================
+        // 8. ЭСКЕЙП HTML
+        // ============================================================
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/[&<>"]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                if (m === '"') return '&quot;';
+                return m;
+            });
+        }
+
+        // ============================================================
+        // 9. ФИЛЬТР И СОРТИРОВКА
+        // ============================================================
+        function filterTasks() {
+            const statusFilter = currentFilter.status;
+            const execFilter = currentFilter.executor.toLowerCase().trim();
+            return tasks.filter(t => {
+                if (statusFilter === 'active' && t.status !== 'active' && t.status !== 'warning') return false;
+                if (statusFilter === 'completed' && t.status !== 'completed') return false;
+                if (statusFilter === 'overdue' && t.status !== 'overdue') return false;
+                if (execFilter && !t.executor.toLowerCase().includes(execFilter)) return false;
+                return true;
+            });
+        }
+
+        function sortTasks(filtered) {
+            const { key, direction } = sortConfig;
+            const sorted = [...filtered];
+            sorted.sort((a, b) => {
+                let valA = a[key] || '';
+                let valB = b[key] || '';
+                if (key === 'deadline') {
+                    valA = new Date(valA);
+                    valB = new Date(valB);
+                    return direction === 'asc' ? valA - valB : valB - valA;
+                }
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            return sorted;
+        }
+
+        // ============================================================
+        // 10. АВТО-РАСШИРЕНИЕ TEXTAREA
+        // ============================================================
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+        }
+
+        // ============================================================
+        // 11. КОПИРОВАНИЕ СТРОКИ
+        // ============================================================
+        function copyRow(task) {
+            const displayDeadline = toDisplayDate(task.deadline);
+            const statusMap = {
+                'active': 'Активно',
+                'warning': '⚠️ 1 день',
+                'overdue': '⛔ Просрочено',
+                'completed': '✅ Снято'
+            };
+            const lines = [
+                `Поручение: ${task.task}`,
+                `Исполнитель: ${task.executor}`,
+                `Срок: ${displayDeadline}`,
+                `Статус: ${statusMap[task.status] || task.status}`,
+                `Комментарий: ${task.comment || ''}`,
+                `${SITE_URL}`
+            ];
+            const fullText = lines.join('\n');
+            
+            navigator.clipboard.writeText(fullText).then(() => {
+                showToast('✅ Строка скопирована с URL');
+            }).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = fullText;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast('✅ Строка скопирована с URL');
+            });
+        }
+
+        // ============================================================
+        // 12. СОХРАНЕНИЕ В FIREBASE
+        // ============================================================
+        function saveTasksToFirebase(showToastMsg = true) {
+            console.log('💾 Сохранение данных...', tasks.length, 'задач');
+            
+            if (isSyncing) {
+                console.log('⏳ Уже идет синхронизация...');
+                return Promise.resolve();
+            }
+            
+            isSyncing = true;
+            updateSyncStatus('syncing', 'Сохранение...');
+            
+            // Сохраняем в localStorage как резерв
+            saveToLocalStorage(tasks);
+            
+            const tasksRef = db.ref('tasks');
+            
+            return tasksRef.set(tasks)
+                .then(() => {
+                    isSyncing = false;
+                    updateSyncStatus('online', `Сохранено ${tasks.length} задач`);
+                    console.log('✅ Данные сохранены в Firebase');
+                    if (showToastMsg) showToast('💾 Данные сохранены');
+                })
+                .catch((error) => {
+                    console.error('❌ Ошибка сохранения в Firebase:', error);
+                    isSyncing = false;
+                    updateSyncStatus('offline', 'Ошибка сохранения');
+                    if (showToastMsg) showToast('⚠️ Ошибка сохранения на сервер');
+                });
+        }
+
+        // ============================================================
+        // 13. ЗАГРУЗКА ДАННЫХ ИЗ FIREBASE
+        // ============================================================
+        function loadTasksFromFirebase() {
+            console.log('📥 Загрузка данных из Firebase...');
+            isLoading = true;
+            updateSyncStatus('syncing', 'Загрузка...');
+            
+            const tasksRef = db.ref('tasks');
+            
+            tasksRef.once('value')
+                .then((snapshot) => {
+                    const data = snapshot.val();
+                    console.log('📦 Получены данные:', data);
+                    
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        tasks = data;
+                        console.log('✅ Загружено', tasks.length, 'задач из Firebase');
+                    } else {
+                        console.log('📝 Данных нет, создаем дефолтные');
+                        tasks = getDefaultTasks();
+                        saveTasksToFirebase(false);
+                    }
+                    
+                    refreshTaskStatuses();
+                    isLoading = false;
+                    render();
+                    if (analyticsPanel.classList.contains('open')) updateAnalytics();
+                    updateSyncStatus('online', `Загружено ${tasks.length} задач`);
+                    
+                    if (isFirstLoad) {
+                        showToast('📥 Данные загружены');
+                        isFirstLoad = false;
+                    }
+                })
+                .catch((error) => {
+                    console.error('❌ Ошибка загрузки из Firebase:', error);
+                    isLoading = false;
+                    
+                    // Пробуем загрузить из localStorage
+                    const localData = loadFromLocalStorage();
+                    if (localData) {
+                        tasks = localData;
+                        console.log('📂 Загружено из localStorage:', tasks.length, 'задач');
+                        render();
+                        updateSyncStatus('offline', 'Офлайн (данные из кэша)');
+                        showToast('⚠️ Офлайн режим, данные из кэша');
+                    } else {
+                        tasks = getDefaultTasks();
+                        console.log('📝 Используем данные по умолчанию');
+                        render();
+                        updateSyncStatus('offline', 'Офлайн (данные по умолчанию)');
+                        showToast('⚠️ Ошибка подключения к серверу');
+                    }
+                });
+
+            // Слушатель изменений в реальном времени
+            tasksRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data && Array.isArray(data)) {
+                    const oldStr = JSON.stringify(tasks);
+                    const newStr = JSON.stringify(data);
+                    if (oldStr !== newStr) {
+                        console.log('🔄 Обновление данных из Firebase');
+                        tasks = data;
+                        refreshTaskStatuses();
+                        render();
+                        if (analyticsPanel.classList.contains('open')) updateAnalytics();
+                        saveToLocalStorage(tasks);
+                        updateSyncStatus('online', `Обновлено (${tasks.length} задач)`);
+                        showToast('🔄 Данные синхронизированы');
+                    }
+                }
+            }, (error) => {
+                console.warn('⚠️ Ошибка слушателя:', error);
+                updateSyncStatus('offline', 'Потеря соединения');
+            });
+        }
+
+        // ============================================================
+        // 14. ОТРИСОВКА ТАБЛИЦЫ
+        // ============================================================
+        function render() {
+            if (isLoading) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align:center;padding:3rem;color:#6a7f9f;">
+                            <i class="fas fa-spinner fa-spin" style="font-size:2rem;display:block;margin-bottom:0.5rem;"></i>
+                            Загрузка данных...
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const filtered = filterTasks();
+            const sorted = sortTasks(filtered);
+            tbody.innerHTML = '';
+
+            // Обновляем счетчик
+            taskCounter.textContent = `Всего: ${tasks.length} | Отфильтровано: ${filtered.length}`;
+
+            if (sorted.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2.5rem;color:#6a7f9f;">Нет поручений по заданным фильтрам</td></tr>`;
+                return;
+            }
+
+            sorted.forEach(task => {
+                const tr = document.createElement('tr');
+                tr.dataset.id = task.id;
+                let rowClass = 'task-row';
+                if (task.status === 'completed') rowClass += ' completed';
+                else if (task.status === 'warning') rowClass += ' yellow';
+                else if (task.status === 'overdue') rowClass += ' red';
+                tr.className = rowClass;
+
+                let statusLabel = 'Активно';
+                if (task.status === 'completed') statusLabel = '✅ Снято';
+                else if (task.status === 'warning') statusLabel = '⚠️ 1 день';
+                else if (task.status === 'overdue') statusLabel = '⛔ Просрочено';
+
+                const displayDeadline = toDisplayDate(task.deadline);
+                const comment = task.comment || '';
+
+                tr.innerHTML = `
+                    <td><strong>${escapeHtml(task.task)}</strong></td>
+                    <td>${escapeHtml(task.executor)}</td>
+                    <td>${escapeHtml(displayDeadline)}</td>
+                    <td><span class="status-badge">${statusLabel}</span></td>
+                    <td class="comment-cell">
+                        <textarea class="comment-textarea" data-id="${task.id}" placeholder="Комментарий">${escapeHtml(comment)}</textarea>
+                    </td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="btn-icon btn-complete" data-id="${task.id}" data-tooltip="Снять"><i class="fas fa-check-circle"></i></button>
+                            <button class="btn-icon btn-extend" data-id="${task.id}" data-tooltip="Продлить +3 дня"><i class="fas fa-calendar-plus"></i></button>
+                            <button class="btn-icon btn-extend-custom" data-id="${task.id}" data-tooltip="Продлить до даты"><i class="fas fa-calendar-alt"></i></button>
+                            <button class="btn-icon btn-copy" data-id="${task.id}" data-tooltip="Копировать"><i class="fas fa-copy"></i></button>
+                            <button class="btn-icon btn-remove" data-id="${task.id}" data-tooltip="Удалить"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // ---------- ИНИЦИАЛИЗАЦИЯ TEXTAREA ----------
+            document.querySelectorAll('.comment-textarea').forEach(textarea => {
+                autoResizeTextarea(textarea);
+                let timeoutId = null;
+                
+                textarea.addEventListener('input', function() {
+                    autoResizeTextarea(this);
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => {
+                        const id = Number(this.dataset.id);
+                        const task = tasks.find(t => t.id === id);
+                        if (task) {
+                            task.comment = this.value.trim() || '';
+                            saveTasksToFirebase(false);
+                        }
+                    }, 500);
+                });
+                
+                textarea.addEventListener('blur', function() {
+                    const id = Number(this.dataset.id);
+                    const task = tasks.find(t => t.id === id);
+                    if (task) {
+                        task.comment = this.value.trim() || '';
+                        saveTasksToFirebase(false);
+                    }
+                });
+            });
+
+            // ---------- СОБЫТИЯ КНОПОК ----------
+            // Снять
+            document.querySelectorAll('.btn-complete').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = Number(this.dataset.id);
+                    const task = tasks.find(t => t.id === id);
+                    if (task) {
+                        task.status = 'completed';
+                        saveTasksToFirebase(true).then(() => {
+                            render();
+                            if (analyticsPanel.classList.contains('open')) updateAnalytics();
+                        });
+                        showToast('✅ Поручение снято с контроля');
+                    }
+                });
+            });
+
+            // Продлить +3 дня
+            document.querySelectorAll('.btn-extend').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = Number(this.dataset.id);
+                    const task = tasks.find(t => t.id === id);
+                    if (task && task.status !== 'completed') {
+                        const d = new Date(task.deadline);
+                        d.setDate(d.getDate() + 3);
+                        task.deadline = d.toISOString().split('T')[0];
+                        const newStatus = getStatusFromDate(task.deadline, task.status);
+                        if (newStatus === 'warning') task.status = 'warning';
+                        else if (newStatus === 'overdue') task.status = 'overdue';
+                        else if (newStatus === 'active') task.status = 'active';
+                        saveTasksToFirebase(true).then(() => {
+                            render();
+                            if (analyticsPanel.classList.contains('open')) updateAnalytics();
+                        });
+                        showToast('⏳ Срок продлён на 3 дня');
+                    } else if (task && task.status === 'completed') {
+                        showToast('⚠️ Поручение снято. Сначала измените статус.');
+                    }
+                });
+            });
+
+            // Продлить до определенной даты
+            document.querySelectorAll('.btn-extend-custom').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = Number(this.dataset.id);
+                    const task = tasks.find(t => t.id === id);
+                    if (!task) return;
+                    if (task.status === 'completed') {
+                        showToast('⚠️ Поручение снято. Сначала измените статус.');
+                        return;
+                    }
+                    const newDateDisplay = prompt('Введите новую дату срока (ДД.ММ.ГГГГ):', toDisplayDate(task.deadline));
+                    if (newDateDisplay === null) return;
+                    if (!isValidDateDisplay(newDateDisplay)) {
+                        alert('Некорректный формат даты. Используйте ДД.ММ.ГГГГ (например, 15.08.2026)');
+                        return;
+                    }
+                    const newDateISO = fromDisplayDate(newDateDisplay);
+                    const now = new Date();
+                    now.setHours(0,0,0,0);
+                    const newDate = new Date(newDateISO);
+                    newDate.setHours(0,0,0,0);
+                    if (newDate < now && task.status !== 'overdue') {
+                        if (!confirm('Вы устанавливаете дату в прошлом. Продолжить?')) return;
+                    }
+                    task.deadline = newDateISO;
+                    const newStatus = getStatusFromDate(task.deadline, task.status);
+                    if (newStatus === 'warning') task.status = 'warning';
+                    else if (newStatus === 'overdue') task.status = 'overdue';
+                    else if (newStatus === 'active') task.status = 'active';
+                    saveTasksToFirebase(true).then(() => {
+                        render();
+                        if (analyticsPanel.classList.contains('open')) updateAnalytics();
+                    });
+                    showToast(`📅 Срок изменён на ${newDateDisplay}`);
+                });
+            });
+
+            // Копировать
+            document.querySelectorAll('.btn-copy').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = Number(this.dataset.id);
+                    const task = tasks.find(t => t.id === id);
+                    if (task) copyRow(task);
+                });
+            });
+
+            // Удалить
+            document.querySelectorAll('.btn-remove').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = Number(this.dataset.id);
+                    if (confirm('Удалить поручение?')) {
+                        tasks = tasks.filter(t => t.id !== id);
+                        saveTasksToFirebase(true).then(() => {
+                            render();
+                            if (analyticsPanel.classList.contains('open')) updateAnalytics();
+                        });
+                        showToast('🗑️ Поручение удалено');
+                    }
+                });
+            });
+        }
+
+        // ============================================================
+        // 15. АНАЛИТИКА
+        // ============================================================
+        function getTasksInPeriod(startISO, endISO) {
+            const start = new Date(startISO);
+            const end = new Date(endISO);
+            return tasks.filter(t => {
+                const d = new Date(t.deadline);
+                return d >= start && d <= end;
+            });
+        }
+
+        function updateAnalytics() {
+            const start = periodStart.value;
+            const end = periodEnd.value;
+            if (!start || !end) { showToast('⚠️ Выберите период'); return; }
+            const filtered = getTasksInPeriod(start, end);
+            
+            // Статусы
+            const statusCounts = { completed: 0, active: 0, overdue: 0, warning: 0 };
+            filtered.forEach(t => {
+                if (t.status === 'completed') statusCounts.completed++;
+                else if (t.status === 'overdue') statusCounts.overdue++;
+                else if (t.status === 'warning') statusCounts.warning++;
+                else statusCounts.active++;
+            });
+            const statusLabels = ['Снято', 'Активно', 'Просрочено', '⚠️ 1 день'];
+            const statusData = [statusCounts.completed, statusCounts.active, statusCounts.overdue, statusCounts.warning];
+
+            if (statusChartInstance) statusChartInstance.destroy();
+            const ctx1 = document.getElementById('statusChart').getContext('2d');
+            statusChartInstance = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: statusLabels,
+                    datasets: [{
+                        data: statusData,
+                        backgroundColor: ['#2a7de1', '#f1c40f', '#e74c3c', '#f39c12'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+
+            // Топ исполнителей
+            const execMap = {};
+            filtered.forEach(t => {
+                if (!execMap[t.executor]) execMap[t.executor] = { total: 0, completed: 0 };
+                execMap[t.executor].total++;
+                if (t.status === 'completed') execMap[t.executor].completed++;
+            });
+            const sortedExec = Object.entries(execMap).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
+            const execNames = sortedExec.map(e => e[0]);
+            const execTotals = sortedExec.map(e => e[1].total);
+            const execCompleted = sortedExec.map(e => e[1].completed);
+
+            if (executorChartInstance) executorChartInstance.destroy();
+            const ctx2 = document.getElementById('executorChart').getContext('2d');
+            executorChartInstance = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: execNames,
+                    datasets: [
+                        { label: 'Всего', data: execTotals, backgroundColor: '#2a7de1' },
+                        { label: 'Снято', data: execCompleted, backgroundColor: '#27ae60' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+
+            // Таблица статистики
+            const allExecs = Object.entries(execMap).sort((a, b) => b[1].total - a[1].total);
+            const tbodyStats = document.getElementById('statsBody');
+            tbodyStats.innerHTML = '';
+            allExecs.forEach(([name, data]) => {
+                const completed = data.completed;
+                const total = data.total;
+                const overdue = filtered.filter(t => t.executor === name && t.status === 'overdue').length;
+                const active = total - completed - overdue;
+                const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${escapeHtml(name)}</td><td>${total}</td><td>${completed}</td><td>${overdue}</td><td>${active}</td><td>${pct}%</td>`;
+                tbodyStats.appendChild(tr);
+            });
+        }
+
+        // ============================================================
+        // 16. ЭКСПОРТ В EXCEL
+        // ============================================================
+        function exportToExcel() {
+            const start = periodStart.value;
+            const end = periodEnd.value;
+            if (!start || !end) { showToast('⚠️ Выберите период'); return; }
+            const filtered = getTasksInPeriod(start, end);
+            const data = filtered.map(t => ({
+                'Поручение': t.task,
+                'Исполнитель': t.executor,
+                'Срок': toDisplayDate(t.deadline),
+                'Статус': t.status === 'completed' ? 'Снято' : (t.status === 'overdue' ? 'Просрочено' : (t.status === 'warning' ? '1 день' : 'Активно')),
+                'Комментарий': t.comment || ''
+            }));
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, 'Поручения');
+            XLSX.writeFile(wb, `поручения_${start}_${end}.xlsx`);
+            showToast('📊 Excel выгружен');
+        }
+
+        // ============================================================
+        // 17. ОБРАБОТЧИКИ СОБЫТИЙ
+        // ============================================================
+        // Сортировка по заголовкам
+        document.querySelectorAll('th[data-sort]').forEach(th => {
+            th.addEventListener('click', function() {
+                const key = this.dataset.sort;
+                if (sortConfig.key === key) {
+                    sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortConfig.key = key;
+                    sortConfig.direction = 'asc';
+                }
+                document.querySelectorAll('th i.fa-sort, th i.fa-sort-up, th i.fa-sort-down')
+                    .forEach(icon => icon.className = 'fas fa-sort');
+                const icon = this.querySelector('i');
+                if (icon) {
+                    icon.className = sortConfig.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+                }
+                render();
+            });
+        });
+
+        // Фильтры
+        filterStatus.addEventListener('change', function() {
+            currentFilter.status = this.value;
+            render();
+        });
+        filterExecutor.addEventListener('input', function() {
+            currentFilter.executor = this.value;
+            render();
+        });
+
+        // Добавление
+        addBtn.addEventListener('click', function() {
+            const taskName = prompt('Введите поручение:', 'Новая задача');
+            if (taskName === null) return;
+            const executor = prompt('Исполнитель:', 'Имя');
+            if (executor === null) return;
+            const deadlineDisplay = prompt('Срок (ДД.ММ.ГГГГ):', '15.08.2026');
+            if (deadlineDisplay === null) return;
+            if (!isValidDateDisplay(deadlineDisplay)) {
+                alert('Некорректный формат даты. Используйте ДД.ММ.ГГГГ (например, 15.08.2026)');
+                return;
+            }
+            const deadlineISO = fromDisplayDate(deadlineDisplay);
+            const newTask = {
+                id: Date.now() + Math.floor(Math.random()*1000),
+                task: taskName.trim() || 'Без названия',
+                executor: executor.trim() || 'Не указан',
+                deadline: deadlineISO,
+                status: 'active',
+                comment: ''
+            };
+            const s = getStatusFromDate(newTask.deadline, 'active');
+            newTask.status = s === 'warning' ? 'warning' : (s === 'overdue' ? 'overdue' : 'active');
+            tasks.push(newTask);
+            saveTasksToFirebase(true).then(() => {
+                render();
+                if (analyticsPanel.classList.contains('open')) updateAnalytics();
+            });
+            showToast('➕ Поручение добавлено');
+        });
+
+        // Аналитика
+        toggleAnalyticsBtn.addEventListener('click', function() {
+            analyticsPanel.classList.toggle('open');
+            if (analyticsPanel.classList.contains('open')) {
+                this.innerHTML = '<i class="fas fa-table"></i> Таблица';
+                updateAnalytics();
+            } else {
+                this.innerHTML = '<i class="fas fa-chart-pie"></i> Аналитика';
+            }
+        });
+
+        updateAnalyticsBtn.addEventListener('click', updateAnalytics);
+        exportExcelBtn.addEventListener('click', exportToExcel);
+
+        // ============================================================
+        // 18. ОБРАБОТКА СОЕДИНЕНИЯ
+        // ============================================================
+        window.addEventListener('online', () => {
+            updateSyncStatus('syncing', 'Восстановление соединения...');
+            loadTasksFromFirebase();
+        });
+
+        window.addEventListener('offline', () => {
+            updateSyncStatus('offline', 'Нет соединения');
+            showToast('⚠️ Интернет-соединение потеряно');
+        });
+
+        // ============================================================
+        // 19. ГОРЯЧИЕ КЛАВИШИ
+        // ============================================================
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                addBtn.click();
+            }
+            if (e.ctrlKey && e.key === 'a') {
+                e.preventDefault();
+                toggleAnalyticsBtn.click();
+            }
+        });
+
+        // ============================================================
+        // 20. ИНИЦИАЛИЗАЦИЯ
+        // ============================================================
+        // Устанавливаем даты по умолчанию для аналитики
+        const today = new Date();
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - 30);
+        periodStart.value = startDate.toISOString().split('T')[0];
+        periodEnd.value = today.toISOString().split('T')[0];
+
+        // Загружаем данные из Firebase
+        loadTasksFromFirebase();
+
+        console.log('🚀 Приложение запущено с Firebase Realtime Database');
+        console.log('📝 Горячие клавиши: Ctrl+N - новое, Ctrl+A - аналитика');
+        console.log('🔄 Данные синхронизируются в реальном времени между устройствами');
+        console.log('📋 Для отладки открывайте консоль (F12)');
+    })();
+</script>
+</body>
+</html>
