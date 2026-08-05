@@ -530,14 +530,15 @@
 </head>
 <body>
 <div class="app" id="app">
-    <div class="header-row">
-        <h1><i class="fas fa-clipboard-list"></i> Поручения</h1>
-        <div class="header-actions">
-            <span class="sync-status online" id="syncStatus">
-                <i class="fas fa-circle"></i> Синхронизировано
-            </span>
-            <button class="btn-analytics" id="toggleAnalyticsBtn"><i class="fas fa-chart-pie"></i> Аналитика</button>
-        </div>
+    <div class="header-actions">
+    <span class="sync-status online" id="syncStatus">
+        <i class="fas fa-circle"></i> Синхронизировано
+    </span>
+    <button class="btn-analytics secondary" id="toggleCompletedBtn" data-tooltip="Скрыть/показать исполненные">
+        <i class="fas fa-eye" id="eyeIcon"></i> <span id="completedToggleLabel">Скрыть исполненные</span>
+    </button>
+    <button class="btn-analytics" id="toggleAnalyticsBtn"><i class="fas fa-chart-pie"></i> Аналитика</button>
+</div>
     </div>
 
     <div class="toolbar">
